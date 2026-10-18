@@ -43,6 +43,11 @@
   .total { font-size: 44px; font-weight: 700; letter-spacing: -.02em; font-variant-numeric: tabular-nums; margin: 2px 0; }
   .net { color: var(--muted); font-variant-numeric: tabular-nums; }
   .facts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+  .calc { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 10px; font-size: 15px; }
+  .calc div { display: flex; justify-content: space-between; padding: 3px 0; font-variant-numeric: tabular-nums; }
+  .calc div span:first-child { color: var(--muted); }
+  .calc .sum { border-top: 1px solid var(--line); margin-top: 4px; padding-top: 7px; font-weight: 650; }
+  .calc .sum span:first-child { color: var(--text); }
   .chip { background: var(--accent-soft); color: var(--text); border-radius: 999px; padding: 4px 10px; font-size: 14px; }
 
   h3 { font-size: 14px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin: 22px 4px 8px; }
@@ -114,10 +119,10 @@
       <button class="icon-btn" id="nextMonth" aria-label="Nästa månad">›</button>
     </div>
     <div class="card">
-      <div class="net" id="totalLabel">Intjänat (brutto)</div>
+      <div class="net" id="totalLabel">Före skatt, inkl. semesterersättning</div>
       <div class="total" id="total">–</div>
-      <div class="net" id="net"></div>
       <div class="facts" id="facts"></div>
+      <div class="calc" id="calc"></div>
     </div>
     <h3>Pass</h3>
     <div class="shifts" id="shifts"></div>
@@ -229,7 +234,18 @@ function render() {
   const hours = list.reduce((t, s) => t + s.work_hours, 0);
   const obHours = list.reduce((t, s) => t + s.additions.reduce((u, a) => u + a.hours, 0), 0);
   $("total").textContent = kr(total);
-  $("net").textContent = data.tax_percent != null ? `≈ ${kr(total * (1 - data.tax_percent / 100))} efter skatt (${data.tax_percent} %)` : "";
+  const sum = f => list.reduce((t, s) => t + f(s), 0);
+  const base = sum(s => s.base), ob = sum(s => s.additions.reduce((u, a) => u + a.amount, 0)), vac = sum(s => s.vacation);
+  const tax = data.tax_percent != null ? total * data.tax_percent / 100 : null;
+  const pct = x => String(x).replace(".", ",") + " %";
+  const calc = [["Grundlön", base]];
+  if (ob) calc.push(["OB-tillägg", ob]);
+  if (vac) calc.push([`Semesterersättning ${pct(data.vacation_pay_percent)}`, vac]);
+  let html = calc.map(([a, b]) => `<div><span>${a}</span><span>${kr(b)}</span></div>`).join("")
+           + `<div class="sum"><span>Före skatt</span><span>${kr(total)}</span></div>`;
+  if (tax != null) html += `<div><span>Skatt ${pct(data.tax_percent)}</span><span>−${kr(tax)}</span></div>`
+                        + `<div class="sum"><span>Efter skatt</span><span>${kr(total - tax)}</span></div>`;
+  $("calc").innerHTML = html;
 
   const facts = [`${list.length} pass`, `${h(hours)} arbetat`];
   if (obHours) facts.push(`${h(obHours)} OB`);
@@ -248,8 +264,9 @@ function render() {
 function shiftHtml(s, isNew) {
   const d = new Date(s.start.slice(0, 10) + "T12:00:00");
   const ob = s.additions.map(a => `${a.name} ${h(a.hours)}`).join(", ");
-  const rows = [["Grundlön", `${h(s.work_hours)}`, s.base], ...s.additions.map(a => [a.name, h(a.hours), a.amount])];
-  if (s.vacation) rows.push([`Semesterersättning ${data.vacation_pay_percent} %`, "", s.vacation]);
+  const paid = s.paid_hours ?? s.work_hours;
+  const rows = [[paid > s.work_hours ? "Grundlön (minst 3 h)" : "Grundlön", h(paid), s.base], ...s.additions.map(a => [a.name, h(a.hours), a.amount])];
+  if (s.vacation) rows.push([`Semesterersättning ${String(data.vacation_pay_percent).replace(".", ",")} %`, "", s.vacation]);
   if (s.break_hours) rows.unshift(["Rast", h(s.break_hours), null]);
   return `<details class="shift">
     <summary>
@@ -259,7 +276,7 @@ function shiftHtml(s, isNew) {
       <div class="amt">${kr(s.total)}</div>
     </summary>
     <div class="breakdown">${rows.map(([a, b, c]) => `<div><span>${a}${b ? " · " + b : ""}</span><span>${c == null ? "" : kr(c)}</span></div>`).join("")}
-      <div><span><b>Totalt</b></span><span><b>${kr(s.total)}</b></span></div></div>
+      <div><span><b>Före skatt</b></span><span><b>${kr(s.total)}</b></span></div>${data.tax_percent != null ? `<div><span>Efter skatt</span><span>${kr(s.total * (1 - data.tax_percent / 100))}</span></div>` : ""}</div>
   </details>`;
 }
 
