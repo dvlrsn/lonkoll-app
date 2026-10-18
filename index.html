@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Lönekoll</title>
+<meta name="theme-color" content="#0f7a4a">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<style>
+  :root {
+    --bg: #f4f5f2; --card: #ffffff; --text: #1b1f1c; --muted: #66706a; --line: #e3e6e1;
+    --accent: #0f7a4a; --accent-soft: #e2f2ea; --accent-text: #ffffff; --warn: #a34b00;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #111412; --card: #1a1f1c; --text: #e9ece9; --muted: #98a29c; --line: #2a312d;
+      --accent: #3fbf80; --accent-soft: #1d3328; --accent-text: #0b1a12; --warn: #f0a060;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #111412; --card: #1a1f1c; --text: #e9ece9; --muted: #98a29c; --line: #2a312d;
+    --accent: #3fbf80; --accent-soft: #1d3328; --accent-text: #0b1a12; --warn: #f0a060;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font: 16px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  main { max-width: 520px; margin: 0 auto; padding: 16px 16px 120px; }
+  header { display: flex; align-items: center; justify-content: space-between; margin: 4px 0 12px; }
+  header h1 { font-size: 18px; margin: 0; letter-spacing: .01em; }
+  .icon-btn { background: none; border: 0; color: var(--muted); font-size: 22px; padding: 6px 8px; border-radius: 10px; cursor: pointer; }
+  .icon-btn:active { background: var(--line); }
+
+  .monthbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .monthbar h2 { font-size: 20px; margin: 0; }
+  .monthbar button:disabled { opacity: .25; }
+
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 18px; }
+  .total { font-size: 44px; font-weight: 700; letter-spacing: -.02em; font-variant-numeric: tabular-nums; margin: 2px 0; }
+  .net { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .facts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+  .chip { background: var(--accent-soft); color: var(--text); border-radius: 999px; padding: 4px 10px; font-size: 14px; }
+
+  h3 { font-size: 14px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin: 22px 4px 8px; }
+  .shifts { display: grid; gap: 8px; }
+  details.shift { background: var(--card); border: 1px solid var(--line); border-radius: 14px; }
+  details.shift summary { list-style: none; display: flex; gap: 12px; align-items: center; padding: 12px 14px; cursor: pointer; }
+  details.shift summary::-webkit-details-marker { display: none; }
+  .date { width: 46px; text-align: center; flex: none; }
+  .date b { display: block; font-size: 20px; line-height: 1.1; }
+  .date span { font-size: 12px; color: var(--muted); text-transform: uppercase; }
+  .mid { flex: 1; min-width: 0; }
+  .mid .sub { color: var(--muted); font-size: 14px; }
+  .amt { font-weight: 650; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .new { color: var(--accent); font-size: 12px; font-weight: 600; margin-left: 6px; }
+  .breakdown { border-top: 1px solid var(--line); margin: 0 14px; padding: 10px 0 12px; font-size: 14px; }
+  .breakdown div { display: flex; justify-content: space-between; padding: 2px 0; font-variant-numeric: tabular-nums; }
+  .breakdown div span:first-child { color: var(--muted); }
+  .empty { color: var(--muted); text-align: center; padding: 28px 8px; }
+
+  .dock { position: fixed; left: 0; right: 0; bottom: 0; padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+          background: linear-gradient(to top, var(--bg) 70%, transparent); }
+  .dock-inner { max-width: 520px; margin: 0 auto; }
+  .primary { width: 100%; border: 0; border-radius: 14px; padding: 15px; font: inherit; font-weight: 650;
+             background: var(--accent); color: var(--accent-text); cursor: pointer; }
+  .primary:disabled { opacity: .6; }
+  .status { text-align: center; color: var(--muted); font-size: 13px; min-height: 18px; margin-top: 6px; }
+  .status a { color: inherit; }
+  .status.err { color: var(--warn); }
+
+  .lock { min-height: 80vh; display: grid; place-content: center; text-align: center; gap: 12px; }
+  .lock p { color: var(--muted); margin: 0; }
+  input[type=password], input[type=text] {
+    width: 100%; font: inherit; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line);
+    background: var(--card); color: var(--text);
+  }
+  dialog { border: 1px solid var(--line); border-radius: 18px; background: var(--card); color: var(--text);
+           width: min(480px, calc(100vw - 32px)); padding: 18px; }
+  dialog::backdrop { background: rgba(0,0,0,.45); }
+  dialog h2 { margin: 0 0 10px; font-size: 18px; }
+  dialog label { display: block; font-size: 14px; color: var(--muted); margin: 12px 0 4px; }
+  dialog .row { display: flex; gap: 8px; margin-top: 16px; }
+  dialog .row button { flex: 1; }
+  .secondary { border: 1px solid var(--line); background: none; color: var(--text); border-radius: 12px; padding: 12px; font: inherit; cursor: pointer; }
+  .hint { font-size: 13px; color: var(--muted); margin-top: 6px; }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <section id="lock" class="lock hidden">
+    <div style="font-size:44px">🔒</div>
+    <h1 style="margin:0">Lönekoll</h1>
+    <p>Skriv koden för att låsa upp din lönedata.</p>
+    <form id="pinForm">
+      <input id="pinInput" type="password" autocomplete="current-password" placeholder="Kod" required>
+      <button class="primary" style="margin-top:10px">Lås upp</button>
+    </form>
+    <p id="pinErr" class="status err"></p>
+  </section>
+
+  <section id="app" class="hidden">
+    <header>
+      <h1>Lönekoll</h1>
+      <button class="icon-btn" id="openSettings" aria-label="Inställningar">⚙︎</button>
+    </header>
+    <div class="monthbar">
+      <button class="icon-btn" id="prevMonth" aria-label="Föregående månad">‹</button>
+      <h2 id="monthTitle"></h2>
+      <button class="icon-btn" id="nextMonth" aria-label="Nästa månad">›</button>
+    </div>
+    <div class="card">
+      <div class="net" id="totalLabel">Intjänat (brutto)</div>
+      <div class="total" id="total">–</div>
+      <div class="net" id="net"></div>
+      <div class="facts" id="facts"></div>
+    </div>
+    <h3>Pass</h3>
+    <div class="shifts" id="shifts"></div>
+    <p class="hint" id="updated" style="text-align:center;margin-top:18px"></p>
+  </section>
+</main>
+
+<div class="dock hidden" id="dock">
+  <div class="dock-inner">
+    <button class="primary" id="checkNow">Kolla nu</button>
+    <div class="status" id="status"></div>
+  </div>
+</div>
+
+<dialog id="settings">
+  <h2>Inställningar</h2>
+  <label for="tokenInput">GitHub-nyckel (för Kolla nu)</label>
+  <input id="tokenInput" type="password" autocomplete="off" placeholder="github_pat_…">
+  <div class="hint">Fine-grained token för bara repot dvlrsn/lonkoll, med Actions: läs och skriv och Contents: läs.</div>
+  <label for="repoInput">Repo</label>
+  <input id="repoInput" type="text" autocomplete="off" placeholder="dvlrsn/lonkoll">
+  <div class="row">
+    <button class="secondary" id="lockBtn" type="button">Lås och glöm koden</button>
+    <button class="primary" id="saveSettings" type="button">Spara</button>
+  </div>
+</dialog>
+
+<script>
+const MONTHS = ["januari","februari","mars","april","maj","juni","juli","augusti","september","oktober","november","december"];
+const WD = ["sön","mån","tis","ons","tor","fre","lör"];
+const $ = id => document.getElementById(id);
+
+const ls = {
+  get(k) { try { return localStorage.getItem("lonkoll." + k) || ""; } catch { return ""; } },
+  set(k, v) { try { v ? localStorage.setItem("lonkoll." + k, v) : localStorage.removeItem("lonkoll." + k); } catch {} },
+};
+
+// Sidan ligger i ett publikt repo, men datan och workflowet ligger i det privata repot.
+const DATA_REPO = "dvlrsn/lonkoll";
+const repo = () => ls.get("repo") || DATA_REPO;
+const token = () => ls.get("token");
+
+let data = null, month = null, pin = ls.get("pin");
+
+const kr = x => Math.round(x).toLocaleString("sv-SE") + " kr";
+const h = x => x.toLocaleString("sv-SE", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + " h";
+const monthKey = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+const monthLabel = k => MONTHS[+k.slice(5, 7) - 1].replace(/^./, c => c.toUpperCase()) + " " + k.slice(0, 4);
+const hm = s => s.slice(11, 16);  // tiderna sparas i svensk lokaltid
+
+async function decrypt(env, code) {
+  const b = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+  const base = await crypto.subtle.importKey("raw", new TextEncoder().encode(code), "PBKDF2", false, ["deriveKey"]);
+  const key = await crypto.subtle.deriveKey({ name: "PBKDF2", hash: "SHA-256", salt: b(env.salt), iterations: env.iter },
+                                            base, { name: "AES-GCM", length: 256 }, false, ["decrypt"]);
+  const plain = await crypto.subtle.decrypt({ name: "AES-GCM", iv: b(env.iv) }, key, b(env.ct));
+  return JSON.parse(new TextDecoder().decode(plain));
+}
+
+async function fetchEnvelope() {
+  const r = await fetch(`https://api.github.com/repos/${repo()}/contents/data/data.enc.json?t=${Date.now()}`, {
+    headers: { Authorization: `Bearer ${token()}`, Accept: "application/vnd.github.raw+json" }, cache: "no-store" });
+  if (r.status === 404) return null;
+  if (r.status === 401 || r.status === 403) throw new Error("GitHub-nyckeln saknar behörighet");
+  if (!r.ok) throw new Error(`Kunde inte hämta datan (${r.status})`);
+  return r.json();
+}
+
+function needToken() {
+  data = { shifts: {}, months: {} }; showApp();
+  setStatus("Lägg in din GitHub-nyckel under ⚙︎ för att komma igång.");
+  $("tokenInput").value = ""; $("repoInput").value = repo(); $("settings").showModal();
+}
+
+async function load() {
+  if (!token()) { needToken(); return; }
+  const env = await fetchEnvelope();
+  if (!env) { data = { shifts: {}, months: {} }; showApp(); setStatus("Ingen data än. Tryck Kolla nu."); return; }
+  if (!pin) { showLock(); return; }
+  try { data = await decrypt(env, pin); }
+  catch { ls.set("pin", ""); pin = ""; showLock("Fel kod."); return; }
+  showApp();
+}
+
+function showLock(err = "") {
+  $("lock").classList.remove("hidden"); $("app").classList.add("hidden"); $("dock").classList.add("hidden");
+  $("pinErr").textContent = err; $("pinInput").focus();
+}
+
+function showApp() {
+  $("lock").classList.add("hidden"); $("app").classList.remove("hidden"); $("dock").classList.remove("hidden");
+  const keys = months();
+  if (!month || !keys.includes(month)) month = keys.includes(monthKey(new Date())) ? monthKey(new Date()) : keys[keys.length - 1];
+  render();
+}
+
+function months() {
+  const set = new Set([...Object.keys(data.months || {}), monthKey(new Date())]);
+  return [...set].sort();
+}
+
+function render() {
+  const keys = months(), i = keys.indexOf(month);
+  $("monthTitle").textContent = monthLabel(month);
+  $("prevMonth").disabled = i <= 0; $("nextMonth").disabled = i >= keys.length - 1;
+
+  const list = Object.values(data.shifts || {}).filter(s => s.month === month).sort((a, b) => a.start.localeCompare(b.start));
+  const total = list.reduce((t, s) => t + s.total, 0);
+  const hours = list.reduce((t, s) => t + s.work_hours, 0);
+  const obHours = list.reduce((t, s) => t + s.additions.reduce((u, a) => u + a.hours, 0), 0);
+  $("total").textContent = kr(total);
+  $("net").textContent = data.tax_percent != null ? `≈ ${kr(total * (1 - data.tax_percent / 100))} efter skatt (${data.tax_percent} %)` : "";
+
+  const facts = [`${list.length} pass`, `${h(hours)} arbetat`];
+  if (obHours) facts.push(`${h(obHours)} OB`);
+  const pay = (data.months || {})[month]?.payday;
+  if (pay) facts.push(`Utbetalas ${+pay.slice(8, 10)} ${MONTHS[+pay.slice(5, 7) - 1]}`);
+  $("facts").innerHTML = facts.map(f => `<span class="chip">${f}</span>`).join("");
+
+  // "NY" = hittades vid senaste kollen. Vid första kollen är allt nytt, då markeras inget.
+  const all = Object.values(data.shifts || {});
+  const firstCheck = all.every(s => s.seen === data.updated);
+  $("shifts").innerHTML = list.length ? list.slice().reverse().map(s => shiftHtml(s, !firstCheck && s.seen === data.updated)).join("")
+                                      : `<div class="empty">Inga pass registrerade den här månaden.</div>`;
+  $("updated").textContent = data.updated ? `Senast kollat ${fmtStamp(data.updated)}` : "";
+}
+
+function shiftHtml(s, isNew) {
+  const d = new Date(s.start.slice(0, 10) + "T12:00:00");
+  const ob = s.additions.map(a => `${a.name} ${h(a.hours)}`).join(", ");
+  const rows = [["Grundlön", `${h(s.work_hours)}`, s.base], ...s.additions.map(a => [a.name, h(a.hours), a.amount])];
+  if (s.vacation) rows.push([`Semesterersättning ${data.vacation_pay_percent} %`, "", s.vacation]);
+  if (s.break_hours) rows.unshift(["Rast", h(s.break_hours), null]);
+  return `<details class="shift">
+    <summary>
+      <div class="date"><b>${d.getDate()}</b><span>${WD[d.getDay()]}</span></div>
+      <div class="mid"><div>${hm(s.start)}–${hm(s.stop)}${isNew ? '<span class="new">NY</span>' : ""}</div>
+        <div class="sub">${h(s.work_hours)}${ob ? " · " + ob : ""}</div></div>
+      <div class="amt">${kr(s.total)}</div>
+    </summary>
+    <div class="breakdown">${rows.map(([a, b, c]) => `<div><span>${a}${b ? " · " + b : ""}</span><span>${c == null ? "" : kr(c)}</span></div>`).join("")}
+      <div><span><b>Totalt</b></span><span><b>${kr(s.total)}</b></span></div></div>
+  </details>`;
+}
+
+function fmtStamp(iso) {
+  const d = new Date(iso);
+  return `${d.getDate()} ${MONTHS[d.getMonth()].slice(0, 3)} ${d.toLocaleTimeString("sv-SE", { hour: "2-digit", minute: "2-digit" })}`;
+}
+
+function setStatus(text, err = false, link = "") {
+  $("status").className = "status" + (err ? " err" : "");
+  $("status").innerHTML = text + (link ? ` <a href="${link}" target="_blank" rel="noopener">Visa körning</a>` : "");
+}
+
+async function gh(path, opts = {}) {
+  const r = await fetch(`https://api.github.com/repos/${repo()}${path}`, { ...opts,
+    headers: { Authorization: `Bearer ${token()}`, Accept: "application/vnd.github+json", ...(opts.headers || {}) } });
+  if (!r.ok && r.status !== 204) throw new Error(r.status === 401 || r.status === 403 ? "GitHub-nyckeln saknar behörighet" : `GitHub svarade ${r.status}`);
+  return r.status === 204 ? null : r.json();
+}
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+async function checkNow() {
+  if (!token()) { needToken(); return; }
+  const btn = $("checkNow"); btn.disabled = true; btn.textContent = "Kollar…";
+  try {
+    const since = Date.now() - 10000;
+    await gh("/actions/workflows/check.yml/dispatches", { method: "POST", body: JSON.stringify({ ref: "main" }) });
+    setStatus("Startar kollen…");
+    let run = null;
+    for (let i = 0; i < 75; i++) {  // högst ca 5 minuter
+      await sleep(4000);
+      const res = await gh("/actions/workflows/check.yml/runs?event=workflow_dispatch&per_page=5");
+      run = res.workflow_runs.find(r => Date.parse(r.created_at) >= since) || null;
+      if (!run) continue;
+      if (run.status === "completed") break;
+      setStatus(run.status === "in_progress" ? "Loggar in på Personalkollen…" : "Väntar på GitHub…");
+    }
+    if (!run || run.status !== "completed") throw new Error("Kollen tar ovanligt lång tid");
+    if (run.conclusion !== "success") { setStatus("Kollen misslyckades.", true, run.html_url); return; }
+    await load();
+    setStatus("Klart! Notisen är på väg.");
+  } catch (e) {
+    setStatus(e.message, true);
+  } finally {
+    btn.disabled = false; btn.textContent = "Kolla nu";
+  }
+}
+
+$("pinForm").addEventListener("submit", e => {
+  e.preventDefault(); pin = $("pinInput").value; ls.set("pin", pin); $("pinInput").value = ""; load().catch(err => showLock(err.message));
+});
+$("prevMonth").onclick = () => { const k = months(); month = k[Math.max(0, k.indexOf(month) - 1)]; render(); };
+$("nextMonth").onclick = () => { const k = months(); month = k[Math.min(k.length - 1, k.indexOf(month) + 1)]; render(); };
+$("checkNow").onclick = checkNow;
+$("openSettings").onclick = () => { $("tokenInput").value = token(); $("repoInput").value = repo(); $("settings").showModal(); };
+$("saveSettings").onclick = () => { ls.set("token", $("tokenInput").value.trim()); ls.set("repo", $("repoInput").value.trim()); $("settings").close(); setStatus("Sparat."); load().catch(e => setStatus(e.message, true)); };
+$("lockBtn").onclick = () => { ls.set("pin", ""); pin = ""; data = null; $("settings").close(); showLock(); };
+
+load().catch(e => { data = { shifts: {}, months: {} }; showApp(); setStatus(e.message, true); });
+</script>
+</body>
+</html>
